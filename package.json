@@ -6,6 +6,9 @@
 	"scripts": {
 		"dev": "wrangler dev --local --persist-to .wrangler/state --port 8787 --ip 127.0.0.1",
 		"deploy": "wrangler deploy",
+		"cf:d1:create": "wrangler d1 create cms-db",
+		"cf:d1:list": "wrangler d1 list",
+		"cf:r2:create": "wrangler r2 bucket create cms-media",
 		"db:migrate:local": "wrangler d1 execute cms-db --local --file=./schema.sql",
 		"db:migrate:remote": "wrangler d1 execute cms-db --file=./schema.sql",
 		"db:reset:local": "rm -rf .wrangler/state/v3/d1 && npm run db:migrate:local"

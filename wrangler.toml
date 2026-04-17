@@ -1,4 +1,10 @@
-name = "d1-cms"
+# Deploy checklist:
+# 1) D1: run `npm run cf:d1:create` (or `wrangler d1 create cms-db`), then paste the printed `database_id` below.
+# 2) R2: run `npm run cf:r2:create` once so the bucket exists (name must match `bucket_name`).
+# 3) Remote schema: `npm run db:migrate:remote`
+# 4) Deploy: `npm run deploy`
+
+name = "cloudflare-d1-cms"
 main = "src/worker.ts"
 compatibility_date = "2026-04-17"
 
@@ -8,7 +14,8 @@ directory = "public"
 [[d1_databases]]
 binding = "DB"
 database_name = "cms-db"
-database_id = "REPLACE_ME"
+# Must be a real UUID from your account (not a placeholder).
+database_id = "a87783e4-7d25-4cec-9f7d-27a9bb8814ae"
 
 [[r2_buckets]]
 binding = "MEDIA"
