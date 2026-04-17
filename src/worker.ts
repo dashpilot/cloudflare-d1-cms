@@ -129,6 +129,32 @@ function layout(opts: {
     <link rel="stylesheet" href="/app.css" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <script>
+      window.cmsApi = {
+        parseJson(text, fallback) {
+          const t = (text ?? '').trim();
+          if (!t) return fallback;
+          try {
+            return JSON.parse(t);
+          } catch {
+            return fallback;
+          }
+        },
+        async readJson(r) {
+          const t = await r.text();
+          try {
+            return JSON.parse(t);
+          } catch {
+            return {
+              ok: false,
+              message: t
+                ? t.slice(0, 200) + (t.length > 200 ? '…' : '')
+                : 'Server returned non-JSON (check API route / deploy).'
+            };
+          }
+        }
+      };
+    </script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
   </head>
   <body>
@@ -263,7 +289,7 @@ async function pagePosts(req: Request, env: Env): Promise<Response> {
         q: '',
         async load(){
           const r = await fetch('/api/posts');
-          const data = await r.json();
+          const data = await cmsApi.readJson(r);
           this.posts = data.posts || [];
           this.applyFilter();
         },
@@ -343,7 +369,7 @@ async function pageCategories(req: Request, env: Env): Promise<Response> {
         busy: false,
         async load(){
           const r = await fetch('/api/categories');
-          const data = await r.json();
+          const data = await cmsApi.readJson(r);
           this.categories = data.categories || [];
         },
         async create(){
@@ -356,7 +382,7 @@ async function pageCategories(req: Request, env: Env): Promise<Response> {
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({ name })
             });
-            const data = await r.json();
+            const data = await cmsApi.readJson(r);
             if(!r.ok){ alert(data.message || 'Failed'); return; }
             this.categories.unshift(data.category);
             this.name = '';
@@ -502,7 +528,7 @@ async function pagePostEditor(req: Request, env: Env, id: string | null): Promis
         busy: false,
         initFromDom(){
           const el = document.getElementById('post-editor-init');
-          const init = el ? JSON.parse(el.textContent || '{}') : {};
+          const init = cmsApi.parseJson(el ? el.textContent : '', {});
           this.id = init.post?.id || null;
           this.title = init.post?.title || '';
           this.category_id = init.post?.category_id || '';
@@ -549,7 +575,7 @@ async function pagePostEditor(req: Request, env: Env, id: string | null): Promis
           this.busy = true;
           try{
             const r = await fetch('/api/posts', { method: 'POST', body: fd });
-            const data = await r.json();
+            const data = await cmsApi.readJson(r);
             if(!r.ok){ alert(data.message || 'Failed'); return; }
             location.href = '/posts/' + data.post.id;
           } finally {
@@ -619,7 +645,7 @@ async function pageLogin(req: Request, env: Env): Promise<Response> {
         canRegister: false,
         initFromDom(){
           const el = document.getElementById('auth-login-init');
-          const init = el ? JSON.parse(el.textContent || '{}') : {};
+          const init = cmsApi.parseJson(el ? el.textContent : '', {});
           this.next = init.next || '/';
           this.canRegister = !!init.canRegister;
         },
@@ -635,7 +661,7 @@ async function pageLogin(req: Request, env: Env): Promise<Response> {
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({ username, password })
             });
-            const data = await r.json();
+            const data = await cmsApi.readJson(r);
             if(!r.ok){ this.error = data.message || 'Login failed.'; return; }
             location.href = this.next || '/';
           } finally {
@@ -695,7 +721,7 @@ async function pageRegister(req: Request, env: Env): Promise<Response> {
         next: '/',
         initFromDom(){
           const el = document.getElementById('auth-register-init');
-          const init = el ? JSON.parse(el.textContent || '{}') : {};
+          const init = cmsApi.parseJson(el ? el.textContent : '', {});
           this.next = init.next || '/';
         },
         async register(){
@@ -712,7 +738,7 @@ async function pageRegister(req: Request, env: Env): Promise<Response> {
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({ username, password })
             });
-            const data = await r.json();
+            const data = await cmsApi.readJson(r);
             if(!r.ok){ this.error = data.message || 'Registration failed.'; return; }
             location.href = this.next || '/';
           } finally {
