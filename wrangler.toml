@@ -10,8 +10,10 @@ compatibility_date = "2026-04-17"
 
 [assets]
 directory = "public"
-# Ensure /api/* hits this Worker (not a static 404 HTML page) when assets are also deployed.
-run_worker_first = ["/api/*"]
+binding = "ASSETS"
+# Run the User Worker first so /api/* and HTML routes are never served as static 404 HTML.
+# Static files are delegated to env.ASSETS.fetch() at the end of `src/worker.ts`.
+run_worker_first = true
 
 [[d1_databases]]
 binding = "DB"

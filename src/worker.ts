@@ -1,6 +1,7 @@
 export interface Env {
 	DB: D1Database;
 	MEDIA: R2Bucket;
+	ASSETS: Fetcher;
 }
 
 type User = { id: string; username: string };
@@ -53,11 +54,8 @@ export default {
 				if (m) return r.handler(req, env, m);
 			}
 
-			if (pathname.startsWith('/assets/')) {
-				return new Response('Not found', { status: 404 });
-			}
-
-			return new Response('Not found', { status: 404 });
+			// CSS / future static files live under `public/` and are served via the ASSETS binding.
+			return env.ASSETS.fetch(req);
 		} catch (err) {
 			// Avoid 1101 "uncaught" by always catching and logging.
 			console.error('Unhandled error', { requestId, url: req.url, err });
@@ -145,6 +143,14 @@ function layout(opts: {
           try {
             return JSON.parse(t);
           } catch {
+            const trimmed = (t || '').trimStart();
+            if (trimmed.startsWith('<')) {
+              return {
+                ok: false,
+                message:
+                  'Server returned HTML instead of JSON (API request did not reach the Worker). Redeploy with the latest wrangler.toml + worker, or check Cloudflare routing.'
+              };
+            }
             return {
               ok: false,
               message: t
