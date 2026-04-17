@@ -35,27 +35,34 @@ const routes: Route[] = [
 
 export default {
 	async fetch(req: Request, env: Env): Promise<Response> {
-		const url = new URL(req.url);
-		const pathname = url.pathname.replace(/\/+$/, '') || '/';
+		const requestId = uid('req_');
+		try {
+			const url = new URL(req.url);
+			const pathname = url.pathname.replace(/\/+$/, '') || '/';
 
-		// Auth gate: everything except login/register/auth API/media must be authenticated.
-		if (requiresAuth(pathname)) {
-			const user = await getSessionUser(req, env);
-			if (!user) return redirect(`/login?next=${encodeURIComponent(pathname)}`);
-			(req as any).__user = user;
-		}
+			// Auth gate: everything except login/register/auth API/media must be authenticated.
+			if (requiresAuth(pathname)) {
+				const user = await getSessionUser(req, env);
+				if (!user) return redirect(`/login?next=${encodeURIComponent(pathname)}`);
+				(req as any).__user = user;
+			}
 
-		for (const r of routes) {
-			if (req.method !== r.method) continue;
-			const m = pathname.match(r.pattern);
-			if (m) return r.handler(req, env, m);
-		}
+			for (const r of routes) {
+				if (req.method !== r.method) continue;
+				const m = pathname.match(r.pattern);
+				if (m) return r.handler(req, env, m);
+			}
 
-		if (pathname.startsWith('/assets/')) {
+			if (pathname.startsWith('/assets/')) {
+				return new Response('Not found', { status: 404 });
+			}
+
 			return new Response('Not found', { status: 404 });
+		} catch (err) {
+			// Avoid 1101 "uncaught" by always catching and logging.
+			console.error('Unhandled error', { requestId, url: req.url, err });
+			return jsonResponse({ ok: false, message: 'Internal error', requestId }, 500);
 		}
-
-		return new Response('Not found', { status: 404 });
 	}
 };
 
@@ -903,11 +910,17 @@ async function apiDeleteCategory(req: Request, env: Env, match: RegExpMatchArray
 }
 
 async function getCounts(env: Env): Promise<{ posts: number; categories: number }> {
-	const [p, c] = await Promise.all([
-		env.DB.prepare('SELECT COUNT(1) AS n FROM posts').first(),
-		env.DB.prepare('SELECT COUNT(1) AS n FROM categories').first()
-	]);
-	return { posts: Number((p as any)?.n ?? 0), categories: Number((c as any)?.n ?? 0) };
+	try {
+		const [p, c] = await Promise.all([
+			env.DB.prepare('SELECT COUNT(1) AS n FROM posts').first(),
+			env.DB.prepare('SELECT COUNT(1) AS n FROM categories').first()
+		]);
+		return { posts: Number((p as any)?.n ?? 0), categories: Number((c as any)?.n ?? 0) };
+	} catch (err) {
+		// If the remote schema wasn't applied yet, tables may not exist.
+		console.error('getCounts failed (missing schema?)', err);
+		return { posts: 0, categories: 0 };
+	}
 }
 
 function guessExt(contentType: string): string | null {
@@ -934,8 +947,14 @@ function requiresAuth(pathname: string): boolean {
 }
 
 async function hasAnyUsers(env: Env): Promise<boolean> {
-	const r = await env.DB.prepare('SELECT COUNT(1) AS n FROM users').first();
-	return Number((r as any)?.n ?? 0) > 0;
+	try {
+		const r = await env.DB.prepare('SELECT COUNT(1) AS n FROM users').first();
+		return Number((r as any)?.n ?? 0) > 0;
+	} catch (err) {
+		// Common on first deploy if `schema.sql` wasn't executed against remote D1 yet.
+		console.error('hasAnyUsers failed (missing schema?)', err);
+		return false;
+	}
 }
 
 async function getSessionUser(req: Request, env: Env): Promise<User | null> {
@@ -967,7 +986,13 @@ function readCookie(cookieHeader: string, name: string): string | null {
 		if (idx < 0) continue;
 		const k = p.slice(0, idx).trim();
 		if (k !== name) continue;
-		return decodeURIComponent(p.slice(idx + 1));
+		const raw = p.slice(idx + 1);
+		try {
+			return decodeURIComponent(raw);
+		} catch {
+			// Malformed cookie values can throw URIError; treat as absent.
+			return null;
+		}
 	}
 	return null;
 }
