@@ -1,0 +1,16 @@
+name = "d1-cms"
+main = "src/worker.ts"
+compatibility_date = "2026-04-17"
+
+[assets]
+directory = "public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cms-db"
+database_id = "REPLACE_ME"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "cms-media"
+

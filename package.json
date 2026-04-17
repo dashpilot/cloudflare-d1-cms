@@ -1,0 +1,19 @@
+{
+	"name": "cloudflare-d1-cms",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"scripts": {
+		"dev": "wrangler dev --local --persist-to .wrangler/state --port 8787 --ip 127.0.0.1",
+		"deploy": "wrangler deploy",
+		"db:migrate:local": "wrangler d1 execute cms-db --local --file=./schema.sql",
+		"db:migrate:remote": "wrangler d1 execute cms-db --file=./schema.sql",
+		"db:reset:local": "rm -rf .wrangler/state/v3/d1 && npm run db:migrate:local"
+	},
+	"devDependencies": {
+		"wrangler": "^4.0.0"
+	},
+	"overrides": {
+		"youch": "3.3.4"
+	}
+}
